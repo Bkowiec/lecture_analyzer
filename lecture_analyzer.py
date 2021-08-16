@@ -79,15 +79,20 @@ max_len_faces = 0
 inattentive_accum = 0.0
 
 fig = plt.figure(figsize=(13, 4.8))
-plt.ylim(-0.25, 1)
+plt.ylim(-0.1, 1.1)
 plt.xlabel("Lecture time (s)")
-plt.ylabel(r'Inattention factor ($\frac{inattentiveTime}{allStudents * lectureTime}$)')
+plt.ylabel(r'Attention factor (1 - $\frac{inattentiveTime}{allStudents * lectureTime}$)')
+
+plt.axhline(y=1, color='#54cb0b', linestyle='--', linewidth=1, label='max. attention')
+plt.axhline(y=0, color='#f52922', linestyle='--', linewidth=1, label='max. inattention')
+
 # plt.ylabel("Inattention factor (inattentive_time / (all_students * lecture_time))" r'Inattention factor $\frac{inattentive_time - {all_students * lecture_time}$')
 
 x = []
 y = []
 
 every_second = 0
+legend = None
 
 while True:
     ret, img = cap.read()
@@ -133,7 +138,7 @@ while True:
             except:
                 ang2 = 90
 
-            if (ang1 >= 48 or ang1 <= -48) or (ang2 >= 48 or ang2 <= -48):
+            if (ang1 >= 45 or ang1 <= -45) or (ang2 >= 45 or ang2 <= -45):
                 face.update({"attention": 0})
                 if int(time.monotonic() - start_time) != every_second:
                     inattentive_accum += 1
@@ -165,17 +170,19 @@ while True:
             denominator = len(faces) * int(time.monotonic() - start_time)
             if denominator != 0:
                 x.append(int(time.monotonic() - start_time))
-                y.append(meter/denominator)
-                plt.plot(x, y, color='#fab700')
+                y.append(1 - (meter/denominator))
+                plt.plot(x, y, linewidth=1, color='#0b68ff', label='Attention factor')
+                if legend == None:
+                    legend = plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc='lower left', ncol=3, mode="expand", borderaxespad=0.)
                 fig.canvas.draw()
                 graph = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
                 graph = graph.reshape(fig.canvas.get_width_height()[::-1] + (3,))
                 graph = cv2.cvtColor(graph, cv2.COLOR_RGB2BGR)
-                cv2.imshow("inattention factor graph", graph)
+                cv2.imshow("Attention factor graph", graph)
 
-                print(f'x = {(meter/denominator)}')
+                print(f'x = {1 - (meter/denominator)}')
 
-        cv2.imshow('lecture analyzer', img)
+        cv2.imshow('Lecture analyzer', img)
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
     else:
