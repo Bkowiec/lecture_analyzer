@@ -37,6 +37,17 @@ def get_2d_points(img, rotation_vector, translation_vector, camera_matrix, val):
     point_2d = np.int32(point_2d.reshape(-1, 2))
     return point_2d
 
+def draw_text(img, text, coord_x, coord_y):
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    font_scale = 0.45
+
+    rectangle_bgr = (0, 0, 0)
+    (text_width, text_height) = cv2.getTextSize(text, font, fontScale=font_scale, thickness=1)[0]
+    box_coords = ((coord_x - 5, coord_y + 5), (coord_x + text_width + 5, coord_y - text_height - 5))
+    cv2.rectangle(img, box_coords[0], box_coords[1], rectangle_bgr, cv2.FILLED)
+
+    cv2.putText(img, text, (coord_x, coord_y), font, fontScale=font_scale, color=(225, 225, 225), thickness=1)
+
 
 def head_pose_points(img, rotation_vector, translation_vector, camera_matrix):
     rear_size = 1
@@ -93,6 +104,7 @@ y = []
 
 every_second = 0
 legend = None
+text_plot = None
 
 while True:
     ret, img = cap.read()
@@ -147,30 +159,32 @@ while True:
                 face.update({"attention": 1})
                 cv2.rectangle(img, (xx, yy), (xxx, yyy), (11, 203, 84), 1)
 
-            cv2.putText(img, "Pitch: {0} Yaw: {1}".format(str(ang2), str(ang1)), (xx, yyy + 20), font, 0.45, (0, 183, 250), 1)
-            cv2.putText(img, "Face: {:.2f}%".format(confidence * 100), (xx, yy - 10), font, 0.45, (0, 183, 250), 1)
-            cv2.putText(img, "Attentive: {0}".format(str(bool(face["attention"]))), (xxx + 10, yy + 10), font, 0.45, (0, 183, 250), 1)
+            draw_text(img, "Pitch: {0} Yaw: {1}".format(str(ang2), str(ang1)), xx, yyy + 20)
+            draw_text(img, "Face: {:.2f}%".format(confidence * 100), xx, yy - 10)
+            draw_text(img, "Attentive: {0}".format(str(bool(face["attention"]))), xxx + 10, yy + 10)
 
-        cv2.putText(img, "Lecture time (seconds): {0}".format(str(int(time.monotonic() - start_time))), (30, 30), font, 0.45, (0, 183, 250), 1)
-        cv2.putText(img, "Max. faces on the screen: {0}".format(str(max_len_faces)), (30, 50), font, 0.45, (0, 183, 250), 1)
-        cv2.putText(img, "Listeners on the screen: {0}".format(str(len(faces))), (30, 70), font, 0.45, (0, 183, 250), 1)
+        draw_text(img, "Lecture time (seconds): {0}".format(str(int(time.monotonic() - start_time))), 30, 30)
+        draw_text(img, "Max. faces on the screen: {0}".format(str(max_len_faces)), 30, 50)
+        draw_text(img, "Listeners on the screen: {0}".format(str(len(faces))), 30, 70)
 
         attentive_listeners = len([i for i in faces if i["attention"] == 1])
         inattentive_listeners = len([i for i in faces if i["attention"] == 0])
 
-        cv2.putText(img, "Attentive listeners: {0}".format(str(int(attentive_listeners))), (30, 90), font, 0.45, (0, 183, 250), 1)
-        cv2.putText(img, "Inattentive listeners: {0}".format(str(int(inattentive_listeners))), (30, 110), font, 0.45, (0, 183, 250), 1)
-        cv2.putText(img, "Inattentive time (seconds): {0}".format(str(int(inattentive_accum))), (30, 130), font, 0.45, (0, 183, 250), 1)
+        draw_text(img, "Attentive listeners: {0}".format(str(int(attentive_listeners))), 30, 90)
+        draw_text(img, "Inattentive listeners: {0}".format(str(int(inattentive_listeners))), 30, 110)
+        draw_text(img, "Inattentive time (seconds): {0}".format(str(int(inattentive_accum))), 30, 130)
 
         if int(time.monotonic() - start_time) != every_second:
             every_second = int(time.monotonic() - start_time)
 
-            # meter = inattentive_accum * inattentive_listeners
             meter = inattentive_accum
             denominator = len(faces) * int(time.monotonic() - start_time)
             if denominator != 0:
                 x.append(int(time.monotonic() - start_time))
                 y.append(1 - (meter/denominator))
+                if text_plot != None:
+                    text_plot.set_visible(False)
+                text_plot = plt.text(x[-1], y[-1], str(round(1 - (meter / denominator), 2)), fontsize=8, color='#0b68ff')
                 plt.plot(x, y, linewidth=1, color='#0b68ff', label='Attention factor')
                 if legend == None:
                     legend = plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc='lower left', ncol=3, mode="expand", borderaxespad=0.)
@@ -179,8 +193,6 @@ while True:
                 graph = graph.reshape(fig.canvas.get_width_height()[::-1] + (3,))
                 graph = cv2.cvtColor(graph, cv2.COLOR_RGB2BGR)
                 cv2.imshow("Attention factor graph", graph)
-
-                print(f'x = {1 - (meter/denominator)}')
 
         cv2.imshow('Lecture analyzer', img)
         if cv2.waitKey(1) & 0xFF == ord('q'):
