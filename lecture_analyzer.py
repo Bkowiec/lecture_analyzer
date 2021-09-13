@@ -3,6 +3,7 @@
 import cv2
 import numpy as np
 import time
+from datetime import datetime
 import math
 from face_detector import get_face_detector, find_faces
 from face_landmarks import get_landmark_model, detect_marks
@@ -85,6 +86,7 @@ camera_matrix = np.array(
      [0, 0, 1]], dtype="double"
 )
 
+now_analyzer = datetime.today().isoformat()
 start_time = time.monotonic()
 max_len_faces = 0
 inattentive_accum = 0.0
@@ -142,13 +144,13 @@ while True:
                 m = (p2[1] - p1[1]) / (p2[0] - p1[0])
                 ang1 = int(math.degrees(math.atan(m)))
             except:
-                ang1 = 90
+                ang1 = 0
 
             try:
                 m = (x2[1] - x1[1]) / (x2[0] - x1[0])
                 ang2 = int(math.degrees(math.atan(-1 / m)))
             except:
-                ang2 = 90
+                ang2 = 0
 
             if (ang1 >= 45 or ang1 <= -45) or (ang2 >= 45 or ang2 <= -45):
                 face.update({"attention": 0})
@@ -178,7 +180,7 @@ while True:
             every_second = int(time.monotonic() - start_time)
 
             meter = inattentive_accum
-            denominator = len(faces) * int(time.monotonic() - start_time)
+            denominator = max_len_faces * int(time.monotonic() - start_time)
             if denominator != 0:
                 x.append(int(time.monotonic() - start_time))
                 y.append(1 - (meter/denominator))
@@ -193,11 +195,20 @@ while True:
                 graph = graph.reshape(fig.canvas.get_width_height()[::-1] + (3,))
                 graph = cv2.cvtColor(graph, cv2.COLOR_RGB2BGR)
                 cv2.imshow("Attention factor graph", graph)
+                cv2.imwrite("results/lecture_" + now_analyzer + ".jpg", graph)
 
         cv2.imshow('Lecture analyzer', img)
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
     else:
         break
+
+    if (len(x) > 0) and (len(y) > 0) and (len(x) == len(y)):
+        file = open('results/lecture_' + now_analyzer + '.csv', 'w+')
+        file.write('second,factor\n')
+        for item_x, item_y in zip(x, y):
+            file.write(str(item_x) + ',' + str(item_y) + '\n')
+
+print(x, y)
 cv2.destroyAllWindows()
 cap.release()
